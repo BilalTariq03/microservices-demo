@@ -1,0 +1,171 @@
+# ─────────────────────────────────────────────────────────────
+# .github/workflows/ci.yml
+# ─────────────────────────────────────────────────────────────
+# This workflow runs automatically every time you push code.
+# It builds Docker images for changed services and pushes
+# them to DockerHub, then updates the k8s manifests.
+
+name: CI - Build and Push Docker Images
+
+# WHEN does this run?
+on:
+  push:
+    branches:
+      - main                    # only when pushing to main branch
+    paths:
+      - 'src/**'                # only when source code changes
+      - 'k8s/**'                # or k8s manifests change
+
+jobs:
+  build-and-push:
+    name: Build and Push Images
+    runs-on: ubuntu-latest      # GitHub provides a free Linux machine to run this
+
+    steps:
+      # Step 1: Download your repo onto the GitHub machine
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Log into DockerHub using your saved secrets
+      # (we'll add these secrets to GitHub in a moment)
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Step 3: Set up Docker Buildx (advanced builder with caching)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Step 4: Create a unique image tag using the git commit hash
+      # e.g. "abc1234" — this way every build has a unique tag
+      - name: Set image tag
+        id: tag
+        run: echo "IMAGE_TAG=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      # ── Build & Push each microservice ──────────────────────
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./src/frontend        # folder containing the Dockerfile
+          push: true                     # actually push to DockerHub
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ steps.tag.outputs.IMAGE_TAG }},${{ secrets.DOCKERHUB_USERNAME }}/frontend:latest
+          cache-from: type=gha           # use GitHub's cache to speed up builds
+          cache-to: type=gha,mode=max
+
+      - name: Build and push cartservice
+        uses: docker/build-push-action@v5
+        with:
+          context: ./src/cartservice/src
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/cartservice:${{ steps.tag.outputs.IMAGE_TAG }},${{ secrets.DOCKERHUB_USERNAME }}/cartservice:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push productcatalogservice
+        uses: docker/build-push-action@v5
+        with:
+          context: ./src/productcatalogservice
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/productcatalogservice:${{ steps.tag.outputs.IMAGE_TAG }},${{ secrets.DOCKERHUB_USERNAME }}/productcatalogservice:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push currencyservice
+        uses: docker/build-push-action@v5
+        with:
+          context: ./src/currencyservice
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/currencyservice:${{ steps.tag.outputs.IMAGE_TAG }},${{ secrets.DOCKERHUB_USERNAME }}/currencyservice:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push paymentservice
+        uses: docker/build-push-action@v5
+        with:
+          context: ./src/paymentservice
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/paymentservice:${{ steps.tag.outputs.IMAGE_TAG }},${{ secrets.DOCKERHUB_USERNAME }}/paymentservice:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push shippingservice
+        uses: docker/build-push-action@v5
+        with:
+          context: ./src/shippingservice
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/shippingservice:${{ steps.tag.outputs.IMAGE_TAG }},${{ secrets.DOCKERHUB_USERNAME }}/shippingservice:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push emailservice
+        uses: docker/build-push-action@v5
+        with:
+          context: ./src/emailservice
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/emailservice:${{ steps.tag.outputs.IMAGE_TAG }},${{ secrets.DOCKERHUB_USERNAME }}/emailservice:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push checkoutservice
+        uses: docker/build-push-action@v5
+        with:
+          context: ./src/checkoutservice
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/checkoutservice:${{ steps.tag.outputs.IMAGE_TAG }},${{ secrets.DOCKERHUB_USERNAME }}/checkoutservice:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push recommendationservice
+        uses: docker/build-push-action@v5
+        with:
+          context: ./src/recommendationservice
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/recommendationservice:${{ steps.tag.outputs.IMAGE_TAG }},${{ secrets.DOCKERHUB_USERNAME }}/recommendationservice:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push adservice
+        uses: docker/build-push-action@v5
+        with:
+          context: ./src/adservice
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/adservice:${{ steps.tag.outputs.IMAGE_TAG }},${{ secrets.DOCKERHUB_USERNAME }}/adservice:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push loadgenerator
+        uses: docker/build-push-action@v5
+        with:
+          context: ./src/loadgenerator
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/loadgenerator:${{ steps.tag.outputs.IMAGE_TAG }},${{ secrets.DOCKERHUB_USERNAME }}/loadgenerator:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Step 5: Update the image tags in k8s manifests
+      # This is what triggers ArgoCD to deploy the new version!
+      - name: Update image tags in k8s manifests
+        run: |
+          TAG=${{ steps.tag.outputs.IMAGE_TAG }}
+          USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
+
+          # Loop through each service and update the image tag
+          for SERVICE in frontend cartservice productcatalogservice currencyservice \
+                         paymentservice shippingservice emailservice checkoutservice \
+                         recommendationservice adservice loadgenerator; do
+            sed -i "s|${USERNAME}/${SERVICE}:.*|${USERNAME}/${SERVICE}:${TAG}|g" \
+              k8s/${SERVICE}/deployment.yml
+          done
+
+      # Step 6: Commit and push the updated manifests back to GitHub
+      # ArgoCD watches the repo and will auto-deploy when it sees this commit
+      - name: Commit updated manifests
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add k8s/
+          git diff --staged --quiet || git commit -m "CI: update image tags to ${{ steps.tag.outputs.IMAGE_TAG }}"
+          git push
