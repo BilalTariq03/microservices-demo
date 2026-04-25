@@ -10,7 +10,7 @@ RUN chmod +x gradlew
 RUN ./gradlew downloadRepos --no-daemon
 
 COPY . .
-RUN ./gradlew installDist --no-daemon
+RUN chmod +x gradlew && ./gradlew installDist --no-daemon
 
 # Stage 2: Run
 FROM eclipse-temurin:21-jre-alpine
