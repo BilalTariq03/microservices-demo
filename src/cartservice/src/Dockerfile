@@ -3,11 +3,11 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS builder
 
 WORKDIR /app
 
-COPY src/cartservice.csproj ./src/
-RUN dotnet restore src/cartservice.csproj
+COPY cartservice.csproj ./
+RUN dotnet restore cartservice.csproj
 
-COPY src/ ./src/
-RUN dotnet publish src/cartservice.csproj -c Release -o /app/publish --no-restore
+COPY . ./
+RUN dotnet publish cartservice.csproj -c Release -o /app/publish --no-restore
 
 # Stage 2: Run
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
