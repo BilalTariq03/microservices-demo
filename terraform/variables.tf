@@ -1,47 +1,29 @@
-# Copyright 2022 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# ─────────────────────────────────────────────────────────────
+# variables.tf  —  All configurable inputs for our infrastructure
+# ─────────────────────────────────────────────────────────────
+# Variables let you change settings without touching main.tf.
+# Think of them like function parameters.
 
-variable "gcp_project_id" {
+variable "aws_region" {
+  description = "The AWS region to deploy resources in"
   type        = string
-  description = "The GCP project ID to apply this config to"
+  default     = "us-east-1"   # Northern Virginia — cheapest & most common
 }
 
-variable "name" {
+variable "instance_type" {
+  description = "EC2 instance size. t3.medium gives 2 vCPUs + 4GB RAM (enough for k8s)"
   type        = string
-  description = "Name given to the new GKE cluster"
-  default     = "online-boutique"
+  default     = "t3.medium"
 }
 
-variable "region" {
+variable "ami_id" {
+  description = "Ubuntu 22.04 LTS AMI ID for us-east-1. Change if using a different region."
   type        = string
-  description = "Region of the new GKE cluster"
-  default     = "us-central1"
+  default     = "ami-0261755bbcb8c4a84"   # Ubuntu 22.04 LTS in us-east-1
 }
 
-variable "namespace" {
+variable "public_key_path" {
+  description = "Path to your local SSH public key file"
   type        = string
-  description = "Kubernetes Namespace in which the Online Boutique resources are to be deployed"
-  default     = "default"
-}
-
-variable "filepath_manifest" {
-  type        = string
-  description = "Path to Online Boutique's Kubernetes resources, written using Kustomize"
-  default     = "../kustomize/"
-}
-
-variable "memorystore" {
-  type        = bool
-  description = "If true, Online Boutique's in-cluster Redis cache will be replaced with a Google Cloud Memorystore Redis cache"
+  default     = "~/.ssh/id_rsa.pub"   # Default location on most machines
 }

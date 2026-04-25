@@ -1,0 +1,20 @@
+# ─────────────────────────────────────────────────────────────
+# .gitignore  —  Files that should NEVER be pushed to GitHub
+# ─────────────────────────────────────────────────────────────
+
+# Terraform state files — contain sensitive info about your infrastructure
+*.tfstate
+*.tfstate.backup
+*.tfstate.lock.info
+
+# Terraform working directory — auto-generated, not needed in git
+.terraform/
+.terraform.lock.hcl
+
+# Variable override files — may contain secrets
+*.tfvars
+*.tfvars.json
+
+# Crash logs
+crash.log
+crash.*.log
