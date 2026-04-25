@@ -9,6 +9,7 @@ name: CI - Build and Push Docker Images
 
 # WHEN does this run?
 on:
+  workflow_dispatch:            # allows manual trigger from GitHub UI
   push:
     branches:
       - main                    # only when pushing to main branch
