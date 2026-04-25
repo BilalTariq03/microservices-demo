@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: adservice
-          image: 22i1297/adservice:latest
+          image: 22i1297/adservice:8f65b0e
           ports:
             - containerPort: 9555
           env:

@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: checkoutservice
-          image: 22i1297/checkoutservice:latest
+          image: 22i1297/checkoutservice:8f65b0e
           ports:
             - containerPort: 5050
           env:
