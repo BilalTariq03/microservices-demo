@@ -16,6 +16,10 @@ on:
       - 'src/**'                # only when source code changes
       - 'k8s/**'                # or k8s manifests change
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-push:
     name: Build and Push Images
