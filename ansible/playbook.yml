@@ -1,0 +1,16 @@
+# ─────────────────────────────────────────────────────────────
+# playbook.yml — Main playbook that runs all roles in order
+# ─────────────────────────────────────────────────────────────
+# A "playbook" is the master file that says:
+#   - WHICH servers to configure (hosts)
+#   - WHAT to install on them (roles)
+# Roles are like chapters — each one handles one thing.
+
+---
+- name: Configure EC2 instance for microservices deployment
+  hosts: microservices        # matches the group name in inventory.ini
+  become: true                # run commands as sudo (root)
+
+  roles:
+    - docker                  # Step 1: Install Docker
+    - microk8s                # Step 2: Install Kubernetes (microk8s)

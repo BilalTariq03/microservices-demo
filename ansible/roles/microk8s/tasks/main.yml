@@ -1,0 +1,99 @@
+# ─────────────────────────────────────────────────────────────
+# roles/microk8s/tasks/main.yml — Installs Kubernetes (microk8s)
+# ─────────────────────────────────────────────────────────────
+# microk8s is a lightweight Kubernetes that runs on a single machine.
+# Perfect for this project!
+
+---
+# Task 1: Install snapd (the package manager used to install microk8s)
+- name: Install snapd
+  apt:
+    name: snapd
+    state: present
+
+# Task 2: Install microk8s via snap
+- name: Install microk8s
+  snap:
+    name: microk8s
+    classic: yes              # "classic" means it gets full system access
+    channel: 1.28/stable      # Kubernetes version 1.28 (stable)
+
+# Task 3: Add ubuntu user to microk8s group
+# (so you can run kubectl commands without sudo)
+- name: Add ubuntu user to microk8s group
+  user:
+    name: ubuntu
+    groups: microk8s
+    append: yes
+
+# Task 4: Wait for microk8s to be fully ready
+# (it takes a minute to start up after installation)
+- name: Wait for microk8s to be ready
+  command: microk8s status --wait-ready
+  changed_when: false
+  timeout: 120               # wait up to 2 minutes
+
+# Task 5: Enable DNS addon
+# (lets pods find each other by name instead of IP)
+- name: Enable microk8s DNS addon
+  command: microk8s enable dns
+  changed_when: false
+
+# Task 6: Enable Storage addon
+# (lets pods save data to disk)
+- name: Enable microk8s storage addon
+  command: microk8s enable storage
+  changed_when: false
+
+# Task 7: Enable Ingress addon
+# (lets external traffic reach your services)
+- name: Enable microk8s ingress addon
+  command: microk8s enable ingress
+  changed_when: false
+
+# Task 8: Enable Registry addon
+# (a local Docker registry so microk8s can pull your images)
+- name: Enable microk8s registry addon
+  command: microk8s enable registry
+  changed_when: false
+
+# Task 9: Set up kubectl config for the ubuntu user
+# kubectl is the command-line tool for talking to Kubernetes
+- name: Create .kube directory for ubuntu user
+  file:
+    path: /home/ubuntu/.kube
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: '0755'
+
+# Task 10: Export the kubeconfig so kubectl works normally
+- name: Export kubeconfig for ubuntu user
+  shell: microk8s config > /home/ubuntu/.kube/config
+  changed_when: false
+
+# Task 11: Set correct ownership on kubeconfig
+- name: Set kubeconfig ownership
+  file:
+    path: /home/ubuntu/.kube/config
+    owner: ubuntu
+    group: ubuntu
+    mode: '0600'
+
+# Task 12: Create a kubectl alias so you can type "kubectl" instead of "microk8s kubectl"
+- name: Add kubectl alias to .bashrc
+  lineinfile:
+    path: /home/ubuntu/.bashrc
+    line: "alias kubectl='microk8s kubectl'"
+    state: present
+
+# Task 13: Verify everything works
+- name: Check microk8s cluster status
+  command: microk8s kubectl get nodes
+  register: nodes_output
+  changed_when: false
+
+# Task 14: Print the cluster status
+- name: Print cluster nodes
+  debug:
+    msg: "{{ nodes_output.stdout }}"

@@ -1,0 +1,76 @@
+# ─────────────────────────────────────────────────────────────
+# roles/docker/tasks/main.yml — Installs Docker on the server
+# ─────────────────────────────────────────────────────────────
+# Each "task" is one command Ansible runs on your server.
+# Ansible runs them TOP TO BOTTOM in order.
+
+---
+# Task 1: Update the package list (like "apt-get update")
+- name: Update apt package cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600    # Don't re-update if done within last hour
+
+# Task 2: Install required system packages
+- name: Install required system packages
+  apt:
+    name:
+      - apt-transport-https   # Allows apt to use HTTPS sources
+      - ca-certificates       # SSL certificates
+      - curl                  # Download tool
+      - gnupg                 # For verifying package signatures
+      - lsb-release           # Shows which Ubuntu version we're on
+      - git                   # Version control (needed later)
+    state: present            # "present" means "make sure it's installed"
+
+# Task 3: Add Docker's official GPG key (proves packages are from Docker)
+- name: Add Docker GPG key
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+
+# Task 4: Add Docker's official repository
+- name: Add Docker repository
+  apt_repository:
+    repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+    state: present
+
+# Task 5: Update package list again (now including Docker's repo)
+- name: Update apt cache after adding Docker repo
+  apt:
+    update_cache: yes
+
+# Task 6: Install Docker itself
+- name: Install Docker Engine
+  apt:
+    name:
+      - docker-ce              # Docker Community Edition
+      - docker-ce-cli          # Docker command line tool
+      - containerd.io          # Container runtime
+    state: present
+
+# Task 7: Start Docker and enable it to auto-start on reboot
+- name: Start and enable Docker service
+  systemd:
+    name: docker
+    state: started
+    enabled: yes
+
+# Task 8: Add ubuntu user to docker group
+# (so you can run docker commands without sudo)
+- name: Add ubuntu user to docker group
+  user:
+    name: ubuntu
+    groups: docker
+    append: yes               # Don't remove from other groups
+
+# Task 9: Verify Docker installed correctly
+- name: Verify Docker is running
+  command: docker --version
+  register: docker_version    # save the output
+  changed_when: false         # this task never "changes" anything
+
+# Task 10: Print the Docker version to confirm
+- name: Print Docker version
+  debug:
+    msg: "Docker installed: {{ docker_version.stdout }}"
