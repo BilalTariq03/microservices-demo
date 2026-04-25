@@ -21,6 +21,9 @@ jobs:
     name: Build and Push Images
     runs-on: ubuntu-latest      # GitHub provides a free Linux machine to run this
 
+    permissions:
+      contents: write           # required to push the manifest commit back to the repo
+
     steps:
       # Step 1: Download your repo onto the GitHub machine
       - name: Checkout repository
