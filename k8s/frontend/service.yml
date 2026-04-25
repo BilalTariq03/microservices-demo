@@ -1,0 +1,20 @@
+# ─────────────────────────────────────────────────────────────
+# frontend/service.yml
+# ─────────────────────────────────────────────────────────────
+# A Service gives the container a stable name + port.
+# Type: NodePort means it's accessible from OUTSIDE the cluster
+# (so users can open it in their browser)
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: boutique
+spec:
+  type: NodePort              # exposes this service to the internet
+  selector:
+    app: frontend             # routes traffic to pods with this label
+  ports:
+    - port: 80                # the port the Service listens on
+      targetPort: 8080        # the port the container listens on
+      nodePort: 30000         # the port users type in their browser (30000-32767)

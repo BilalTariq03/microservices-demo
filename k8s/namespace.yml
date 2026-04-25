@@ -1,0 +1,10 @@
+# ─────────────────────────────────────────────────────────────
+# namespace.yml — Creates a dedicated space for our app
+# ─────────────────────────────────────────────────────────────
+# A namespace is like a folder inside Kubernetes.
+# It keeps our microservices separate from other apps.
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: boutique          # all our services will live in this namespace

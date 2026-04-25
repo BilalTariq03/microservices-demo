@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loadgenerator
+  namespace: boutique
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: loadgenerator
+  template:
+    metadata:
+      labels:
+        app: loadgenerator
+    spec:
+      containers:
+        - name: loadgenerator
+          image: 22i1297/loadgenerator:latest
+          env:
+            - name: FRONTEND_ADDR
+              value: "frontend:80"    # points at the frontend service
+            - name: USERS
+              value: "10"            # simulate 10 concurrent users
+            - name: RATE
+              value: "1"
+          resources:
+            requests:
+              cpu: "300m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
