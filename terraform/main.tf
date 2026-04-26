@@ -114,6 +114,15 @@ resource "aws_security_group" "ec2_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  # Allow ArgoCD NodePort
+  ingress {
+    description = "ArgoCD NodePort"
+    from_port   = 30001
+    to_port     = 30001
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   # Allow all outbound traffic (so the server can download packages, etc.)
   egress {
     from_port   = 0
