@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: loadgenerator
-          image: 22i1297/loadgenerator:e7df862
+          image: 22i1297/loadgenerator:44a5703
           env:
             - name: FRONTEND_ADDR
               value: "frontend:80"    # points at the frontend service

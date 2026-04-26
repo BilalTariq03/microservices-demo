@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: productcatalogservice
-          image: 22i1297/productcatalogservice:e7df862
+          image: 22i1297/productcatalogservice:44a5703
           ports:
             - containerPort: 3550
           env:

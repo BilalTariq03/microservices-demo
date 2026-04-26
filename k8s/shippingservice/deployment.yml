@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: shippingservice
-          image: 22i1297/shippingservice:e7df862
+          image: 22i1297/shippingservice:44a5703
           ports:
             - containerPort: 50051
           env:
