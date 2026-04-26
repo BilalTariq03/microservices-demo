@@ -1,169 +1,460 @@
-<!-- <p align="center">
-<img src="/src/frontend/static/icons/Hipster_HeroLogoMaroon.svg" width="300" alt="Online Boutique" />
-</p> -->
-![Continuous Integration](https://github.com/GoogleCloudPlatform/microservices-demo/workflows/Continuous%20Integration%20-%20Main/Release/badge.svg)
+# 🚀 Automated Multi-Tier Microservices Deployment on AWS
 
-**Online Boutique** is a cloud-first microservices demo application.  The application is a
-web-based e-commerce app where users can browse items, add them to the cart, and purchase them.
+> A complete DevOps pipeline deploying Google's Online Boutique microservices application on AWS EC2 using Docker, Terraform, Ansible, Kubernetes (microk8s), GitHub Actions, and ArgoCD.
 
-Google uses this application to demonstrate how developers can modernize enterprise applications using Google Cloud products, including: [Google Kubernetes Engine (GKE)](https://cloud.google.com/kubernetes-engine), [Cloud Service Mesh (CSM)](https://cloud.google.com/service-mesh), [gRPC](https://grpc.io/), [Cloud Operations](https://cloud.google.com/products/operations), [Spanner](https://cloud.google.com/spanner), [Memorystore](https://cloud.google.com/memorystore), [AlloyDB](https://cloud.google.com/alloydb), and [Gemini](https://ai.google.dev/). This application works on any Kubernetes cluster.
+---
 
-If you’re using this demo, please **★Star** this repository to show your interest!
+## 📋 Table of Contents
 
-**Note to Googlers:** Please fill out the form at [go/microservices-demo](http://go/microservices-demo).
+- [Project Overview](#project-overview)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Repository Structure](#repository-structure)
+- [Prerequisites](#prerequisites)
+- [Deployment Guide](#deployment-guide)
+  - [Step 1: Codebase](#step-1-codebase)
+  - [Step 2: Docker](#step-2-docker)
+  - [Step 3: Terraform](#step-3-terraform)
+  - [Step 4: Ansible](#step-4-ansible)
+  - [Step 5: Kubernetes](#step-5-kubernetes)
+  - [Step 6: CI/CD](#step-6-cicd)
+- [Accessing the Application](#accessing-the-application)
+- [CI/CD Pipeline Flow](#cicd-pipeline-flow)
+- [Teardown](#teardown)
+
+---
+
+## Project Overview
+
+This project demonstrates a complete end-to-end automated deployment pipeline for a microservices-based e-commerce application. The application (Google's Online Boutique) consists of 11 microservices written in different languages (Go, Python, Node.js, C#, Java) all deployed on a single AWS EC2 instance running a local Kubernetes cluster.
+
+Every layer of the infrastructure is defined as code:
+- **Dockerfiles** containerize each microservice
+- **Terraform** provisions the AWS infrastructure
+- **Ansible** configures the server automatically
+- **Kubernetes manifests** define how services run
+- **GitHub Actions** builds and pushes images on every commit
+- **ArgoCD** automatically deploys changes to the cluster
+
+---
 
 ## Architecture
 
-**Online Boutique** is composed of 11 microservices written in different
-languages that talk to each other over gRPC.
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        Developer                            │
+│                    git push → GitHub                        │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   GitHub Actions (CI)                       │
+│  • Builds Docker images for all 11 microservices            │
+│  • Pushes images to DockerHub                               │
+│  • Updates image tags in k8s manifests                      │
+│  • Commits updated manifests back to repo                   │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      DockerHub                              │
+│            22i1297/<service>:<commit-sha>                   │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  AWS EC2 (t3.medium)                        │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │              ArgoCD (CD)                            │   │
+│  │  • Watches GitHub repo for manifest changes         │   │
+│  │  • Auto-syncs Kubernetes cluster                    │   │
+│  └──────────────────────┬──────────────────────────────┘   │
+│                         │                                   │
+│  ┌──────────────────────▼──────────────────────────────┐   │
+│  │         Kubernetes Cluster (microk8s)               │   │
+│  │                                                     │   │
+│  │  frontend      cartservice    productcatalog         │   │
+│  │  emailservice  checkout       recommendation         │   │
+│  │  currency      payment        shipping               │   │
+│  │  adservice     loadgenerator  redis                  │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │              AWS VPC (10.0.0.0/16)                  │   │
+│  │         Security Group | Public Subnet              │   │
+│  └─────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
 
-[![Architecture of
-microservices](/docs/img/architecture-diagram.png)](/docs/img/architecture-diagram.png)
+---
 
-Find **Protocol Buffers Descriptions** at the [`./protos` directory](/protos).
+## Tech Stack
 
-| Service                                              | Language      | Description                                                                                                                       |
-| ---------------------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| [frontend](/src/frontend)                           | Go            | Exposes an HTTP server to serve the website. Does not require signup/login and generates session IDs for all users automatically. |
-| [cartservice](/src/cartservice)                     | C#            | Stores the items in the user's shopping cart in Redis and retrieves it.                                                           |
-| [productcatalogservice](/src/productcatalogservice) | Go            | Provides the list of products from a JSON file and ability to search products and get individual products.                        |
-| [currencyservice](/src/currencyservice)             | Node.js       | Converts one money amount to another currency. Uses real values fetched from European Central Bank. It's the highest QPS service. |
-| [paymentservice](/src/paymentservice)               | Node.js       | Charges the given credit card info (mock) with the given amount and returns a transaction ID.                                     |
-| [shippingservice](/src/shippingservice)             | Go            | Gives shipping cost estimates based on the shopping cart. Ships items to the given address (mock)                                 |
-| [emailservice](/src/emailservice)                   | Python        | Sends users an order confirmation email (mock).                                                                                   |
-| [checkoutservice](/src/checkoutservice)             | Go            | Retrieves user cart, prepares order and orchestrates the payment, shipping and the email notification.                            |
-| [recommendationservice](/src/recommendationservice) | Python        | Recommends other products based on what's given in the cart.                                                                      |
-| [adservice](/src/adservice)                         | Java          | Provides text ads based on given context words.                                                                                   |
-| [loadgenerator](/src/loadgenerator)                 | Python/Locust | Continuously sends requests imitating realistic user shopping flows to the frontend.                                              |
+| Tool | Purpose | Version |
+|------|---------|---------|
+| **Docker** | Containerize microservices | Latest |
+| **Terraform** | AWS infrastructure provisioning | >= 1.5.0 |
+| **Ansible** | Server configuration management | Latest |
+| **microk8s** | Lightweight Kubernetes cluster | 1.28/stable |
+| **GitHub Actions** | CI pipeline (build & push images) | v3/v4 |
+| **ArgoCD** | CD pipeline (auto-deploy to k8s) | v3.3.8 |
+| **AWS EC2** | Cloud server (t3.medium) | Ubuntu 22.04 |
 
-## Screenshots
+---
 
-| Home Page                                                                                                         | Checkout Screen                                                                                                    |
-| ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| [![Screenshot of store homepage](/docs/img/online-boutique-frontend-1.png)](/docs/img/online-boutique-frontend-1.png) | [![Screenshot of checkout screen](/docs/img/online-boutique-frontend-2.png)](/docs/img/online-boutique-frontend-2.png) |
+## Repository Structure
 
-## Quickstart (GKE)
+```
+microservices-demo/
+├── src/                          # Application source code
+│   ├── frontend/                 # Go - Web UI
+│   │   └── Dockerfile            # Custom 2-stage build
+│   ├── cartservice/              # C# - Shopping cart
+│   │   └── src/Dockerfile        # Custom 2-stage build
+│   ├── productcatalogservice/    # Go - Product catalog
+│   ├── currencyservice/          # Node.js - Currency conversion
+│   ├── paymentservice/           # Node.js - Payment processing
+│   ├── shippingservice/          # Go - Shipping calculation
+│   ├── emailservice/             # Python - Email notifications
+│   ├── checkoutservice/          # Go - Order checkout
+│   ├── recommendationservice/    # Python - Product recommendations
+│   ├── adservice/                # Java - Advertisements
+│   └── loadgenerator/            # Python - Traffic simulation
+│
+├── terraform/                    # AWS Infrastructure as Code
+│   ├── main.tf                   # VPC, Subnet, Security Group, EC2
+│   ├── variables.tf              # Configurable inputs
+│   ├── providers.tf              # AWS provider config
+│   ├── outputs.tf                # EC2 IP, SSH command, App URL
+│   └── .gitignore                # Excludes sensitive state files
+│
+├── ansible/                      # Configuration Management
+│   ├── inventory.ini             # EC2 server address + SSH config
+│   ├── playbook.yml              # Master playbook
+│   └── roles/
+│       ├── docker/tasks/main.yml # Installs Docker on EC2
+│       └── microk8s/tasks/main.yml # Installs & configures Kubernetes
+│
+├── k8s/                          # Kubernetes Manifests
+│   ├── namespace.yml             # Creates 'boutique' namespace
+│   ├── frontend/                 # Deployment + NodePort Service
+│   ├── cartservice/              # Deployment + ClusterIP Service
+│   ├── productcatalogservice/    # Deployment + ClusterIP Service
+│   ├── currencyservice/          # Deployment + ClusterIP Service
+│   ├── paymentservice/           # Deployment + ClusterIP Service
+│   ├── shippingservice/          # Deployment + ClusterIP Service
+│   ├── emailservice/             # Deployment + ClusterIP Service
+│   ├── checkoutservice/          # Deployment + ClusterIP Service
+│   ├── recommendationservice/    # Deployment + ClusterIP Service
+│   ├── adservice/                # Deployment + ClusterIP Service
+│   ├── loadgenerator/            # Deployment (no service needed)
+│   ├── redis/                    # Deployment + ClusterIP Service
+│   └── argocd/
+│       └── application.yml       # ArgoCD app configuration
+│
+└── .github/
+    └── workflows/
+        └── ci.yml                # GitHub Actions CI pipeline
+```
 
-1. Ensure you have the following requirements:
-   - [Google Cloud project](https://cloud.google.com/resource-manager/docs/creating-managing-projects#creating_a_project).
-   - Shell environment with `gcloud`, `git`, and `kubectl`.
+---
 
-2. Clone the latest major version.
+## Prerequisites
 
-   ```sh
-   git clone --depth 1 --branch v0 https://github.com/GoogleCloudPlatform/microservices-demo.git
-   cd microservices-demo/
-   ```
+Before deploying, ensure you have:
 
-   The `--depth 1` argument skips downloading git history.
+- **AWS Account** with IAM user and AdministratorAccess
+- **GitHub Account** with the repo forked
+- **DockerHub Account** for storing images
+- **Local machine** with:
+  - Git installed
+  - WSL (Ubuntu) installed on Windows
+  - Terraform installed
+  - AWS CLI installed and configured
+  - SSH key pair generated (`~/.ssh/id_rsa`)
 
-3. Set the Google Cloud project and region and ensure the Google Kubernetes Engine API is enabled.
+---
 
-   ```sh
-   export PROJECT_ID=<PROJECT_ID>
-   export REGION=us-central1
-   gcloud services enable container.googleapis.com \
-     --project=${PROJECT_ID}
-   ```
+## Deployment Guide
 
-   Substitute `<PROJECT_ID>` with the ID of your Google Cloud project.
+### Step 1: Codebase
 
-4. Create a GKE cluster and get the credentials for it.
+Fork the Google Online Boutique repository:
 
-   ```sh
-   gcloud container clusters create-auto online-boutique \
-     --project=${PROJECT_ID} --region=${REGION}
-   ```
+```
+https://github.com/GoogleCloudPlatform/microservices-demo
+```
 
-   Creating the cluster may take a few minutes.
+Clone your fork locally:
 
-5. Deploy Online Boutique to the cluster.
+```bash
+git clone https://github.com/YOUR_USERNAME/microservices-demo.git
+cd microservices-demo
+```
 
-   ```sh
-   kubectl apply -f ./release/kubernetes-manifests.yaml
-   ```
+---
 
-6. Wait for the pods to be ready.
+### Step 2: Docker
 
-   ```sh
-   kubectl get pods
-   ```
+Each microservice has a custom **2-stage Dockerfile**:
+- **Stage 1 (Builder):** Compiles/builds the application
+- **Stage 2 (Runner):** Copies only the final binary into a minimal image
 
-   After a few minutes, you should see the Pods in a `Running` state:
+This keeps images small and secure — no compilers or dev tools in production.
 
-   ```
-   NAME                                     READY   STATUS    RESTARTS   AGE
-   adservice-76bdd69666-ckc5j               1/1     Running   0          2m58s
-   cartservice-66d497c6b7-dp5jr             1/1     Running   0          2m59s
-   checkoutservice-666c784bd6-4jd22         1/1     Running   0          3m1s
-   currencyservice-5d5d496984-4jmd7         1/1     Running   0          2m59s
-   emailservice-667457d9d6-75jcq            1/1     Running   0          3m2s
-   frontend-6b8d69b9fb-wjqdg                1/1     Running   0          3m1s
-   loadgenerator-665b5cd444-gwqdq           1/1     Running   0          3m
-   paymentservice-68596d6dd6-bf6bv          1/1     Running   0          3m
-   productcatalogservice-557d474574-888kr   1/1     Running   0          3m
-   recommendationservice-69c56b74d4-7z8r5   1/1     Running   0          3m1s
-   redis-cart-5f59546cdd-5jnqf              1/1     Running   0          2m58s
-   shippingservice-6ccc89f8fd-v686r         1/1     Running   0          2m58s
-   ```
+The Dockerfiles are located at `src/<service>/Dockerfile` for each of the 11 microservices.
 
-7. Access the web frontend in a browser using the frontend's external IP.
+Key languages and base images used:
 
-   ```sh
-   kubectl get service frontend-external | awk '{print $4}'
-   ```
+| Service | Language | Base Image |
+|---------|----------|------------|
+| frontend | Go | `golang:1.26-alpine` + `alpine:3.21` |
+| cartservice | C# | `dotnet/sdk:10.0` + `dotnet/aspnet:10.0` |
+| adservice | Java | `gradle:8.6-jdk21` + `eclipse-temurin:21-jre` |
+| emailservice | Python | `python:3.12-slim` |
+| currencyservice | Node.js | `node:22-alpine` |
 
-   Visit `http://EXTERNAL_IP` in a web browser to access your instance of Online Boutique.
+---
 
-8. Congrats! You've deployed the default Online Boutique. To deploy a different variation of Online Boutique (e.g., with Google Cloud Operations tracing, Istio, etc.), see [Deploy Online Boutique variations with Kustomize](#deploy-online-boutique-variations-with-kustomize).
+### Step 3: Terraform
 
-9. Once you are done with it, delete the GKE cluster.
+Terraform provisions the entire AWS infrastructure with one command.
 
-   ```sh
-   gcloud container clusters delete online-boutique \
-     --project=${PROJECT_ID} --region=${REGION}
-   ```
+**Resources created:**
+- VPC (`10.0.0.0/16`)
+- Internet Gateway
+- Public Subnet (`10.0.1.0/24`)
+- Route Table
+- Security Group (ports: 22, 80, 443, 8080, 9090, 30000, 30001)
+- SSH Key Pair
+- EC2 Instance (`t3.medium`, Ubuntu 22.04, 30GB SSD)
 
-   Deleting the cluster may take a few minutes.
+**Setup:**
 
-## Additional deployment options
+```bash
+# Configure AWS credentials
+aws configure
 
-- **Terraform**: [See these instructions](/terraform) to learn how to deploy Online Boutique using [Terraform](https://www.terraform.io/intro).
-- **Istio / Cloud Service Mesh**: [See these instructions](/kustomize/components/service-mesh-istio/README.md) to deploy Online Boutique alongside an Istio-backed service mesh.
-- **Non-GKE clusters (Minikube, Kind, etc)**: See the [Development guide](/docs/development-guide.md) to learn how you can deploy Online Boutique on non-GKE clusters.
-- **AI assistant using Gemini**: [See these instructions](/kustomize/components/shopping-assistant/README.md) to deploy a Gemini-powered AI assistant that suggests products to purchase based on an image.
-- **And more**: The [`/kustomize` directory](/kustomize) contains instructions for customizing the deployment of Online Boutique with other variations.
+# Generate SSH key
+ssh-keygen -t rsa -b 4096
 
-## Documentation
+# Copy terraform files to WSL home (avoids Windows filesystem permission issues)
+cp -r /mnt/f/path/to/terraform ~/terraform
+cd ~/terraform
 
-- [Development](/docs/development-guide.md) to learn how to run and develop this app locally.
+# Initialize and deploy
+terraform init
+terraform plan
+terraform apply
+```
 
-## Demos featuring Online Boutique
+After apply, Terraform outputs your server's public IP:
 
-- [Security hardening of the OnlineBoutique sample apps with the Docker Hardened Images (DHI)](https://medium.com/google-cloud/security-hardening-of-the-onlineboutique-sample-apps-with-docker-hardened-images-dhi-ca1fad348343)
-- [alpine, distroless or scratch?](https://medium.com/google-cloud/alpine-distroless-or-scratch-caac35250e0b)
-- [Platform Engineering in action: Deploy the Online Boutique sample apps with Score and Humanitec](https://medium.com/p/d99101001e69)
-- [The new Kubernetes Gateway API with Istio and Anthos Service Mesh (ASM)](https://medium.com/p/9d64c7009cd)
-- [Use Azure Redis Cache with the Online Boutique sample on AKS](https://medium.com/p/981bd98b53f8)
-- [Sail Sharp, 8 tips to optimize and secure your .NET containers for Kubernetes](https://medium.com/p/c68ba253844a)
-- [Deploy multi-region application with Anthos and Google cloud Spanner](https://medium.com/google-cloud/a2ea3493ed0)
-- [Use Google Cloud Memorystore (Redis) with the Online Boutique sample on GKE](https://medium.com/p/82f7879a900d)
-- [Use Helm to simplify the deployment of Online Boutique, with a Service Mesh, GitOps, and more!](https://medium.com/p/246119e46d53)
-- [How to reduce microservices complexity with Apigee and Anthos Service Mesh](https://cloud.google.com/blog/products/application-modernization/api-management-and-service-mesh-go-together)
-- [gRPC health probes with Kubernetes 1.24+](https://medium.com/p/b5bd26253a4c)
-- [Use Google Cloud Spanner with the Online Boutique sample](https://medium.com/p/f7248e077339)
-- [Seamlessly encrypt traffic from any apps in your Mesh to Memorystore (redis)](https://medium.com/google-cloud/64b71969318d)
-- [Strengthen your app's security with Cloud Service Mesh and Anthos Config Management](https://cloud.google.com/service-mesh/docs/strengthen-app-security)
-- [From edge to mesh: Exposing service mesh applications through GKE Ingress](https://cloud.google.com/architecture/exposing-service-mesh-apps-through-gke-ingress)
-- [Take the first step toward SRE with Cloud Operations Sandbox](https://cloud.google.com/blog/products/operations/on-the-road-to-sre-with-cloud-operations-sandbox)
-- [Deploying the Online Boutique sample application on Cloud Service Mesh](https://cloud.google.com/service-mesh/docs/onlineboutique-install-kpt)
-- [Anthos Service Mesh Workshop: Lab Guide](https://codelabs.developers.google.com/codelabs/anthos-service-mesh-workshop)
-- [KubeCon EU 2019 - Reinventing Networking: A Deep Dive into Istio's Multicluster Gateways - Steve Dake, Independent](https://youtu.be/-t2BfT59zJA?t=982)
-- Google Cloud Next'18 SF
-  - [Day 1 Keynote](https://youtu.be/vJ9OaAqfxo4?t=2416) showing GKE On-Prem
-  - [Day 3 Keynote](https://youtu.be/JQPOPV_VH5w?t=815) showing Stackdriver
-    APM (Tracing, Code Search, Profiler, Google Cloud Build)
-  - [Introduction to Service Management with Istio](https://www.youtube.com/watch?v=wCJrdKdD6UM&feature=youtu.be&t=586)
-- [Google Cloud Next'18 London – Keynote](https://youtu.be/nIq2pkNcfEI?t=3071)
-  showing Stackdriver Incident Response Management
-- [Microservices demo showcasing Go Micro](https://github.com/go-micro/demo)
+```
+ec2_public_ip = "18.232.178.157"
+ssh_command   = "ssh -i ~/.ssh/id_rsa ubuntu@18.232.178.157"
+```
+
+---
+
+### Step 4: Ansible
+
+Ansible automatically configures the EC2 instance over SSH — no manual installation needed.
+
+**What it installs:**
+- Docker Engine + CLI
+- microk8s (Kubernetes)
+- Addons: DNS, Storage, Ingress, Registry
+
+**Fix Windows line endings before running:**
+
+```bash
+sudo apt install dos2unix -y
+dos2unix ansible/inventory.ini
+```
+
+**Update inventory with your EC2 IP:**
+
+```ini
+[microservices]
+18.232.178.157
+
+[microservices:vars]
+ansible_user=ubuntu
+ansible_ssh_private_key_file=/home/bilal/.ssh/id_rsa
+ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+```
+
+**Run the playbook:**
+
+```bash
+cd ansible/
+ansible-playbook -i inventory.ini playbook.yml
+```
+
+Expected output:
+```
+PLAY RECAP
+18.232.178.157 : ok=25  changed=12  unreachable=0  failed=0
+```
+
+---
+
+### Step 5: Kubernetes
+
+Kubernetes manifests define how each microservice runs in the cluster.
+
+**Each service has:**
+- `deployment.yml` — defines the container image, ports, env vars, resource limits
+- `service.yml` — exposes the container (ClusterIP for internal, NodePort for external)
+
+**Apply manifests via ArgoCD** (see Step 6) or manually:
+
+```bash
+ssh -i ~/.ssh/id_rsa ubuntu@18.232.178.157
+microk8s kubectl apply -f https://raw.githubusercontent.com/BilalTariq03/microservices-demo/main/k8s/argocd/application.yml
+```
+
+**Verify pods are running:**
+
+```bash
+microk8s kubectl get pods -n boutique
+```
+
+Expected output:
+```
+NAME                                   READY   STATUS    RESTARTS   AGE
+adservice-xxx                          1/1     Running   0          5m
+cartservice-xxx                        1/1     Running   0          5m
+checkoutservice-xxx                    1/1     Running   0          5m
+currencyservice-xxx                    1/1     Running   0          5m
+emailservice-xxx                       1/1     Running   0          5m
+frontend-xxx                           1/1     Running   0          5m
+paymentservice-xxx                     1/1     Running   0          5m
+productcatalogservice-xxx              1/1     Running   0          5m
+recommendationservice-xxx              1/1     Running   0          5m
+redis-xxx                              1/1     Running   0          5m
+shippingservice-xxx                    1/1     Running   0          5m
+```
+
+---
+
+### Step 6: CI/CD
+
+#### GitHub Actions (CI)
+
+The workflow at `.github/workflows/ci.yml` triggers on every push to `main`:
+
+1. Checks out the repository
+2. Logs into DockerHub using repository secrets
+3. Builds Docker images for all 11 services
+4. Pushes images to DockerHub with a unique git commit SHA tag
+5. Updates image tags in all `k8s/*/deployment.yml` files
+6. Commits and pushes the updated manifests
+
+**Add these secrets to GitHub** (Settings → Secrets → Actions):
+
+| Secret | Value |
+|--------|-------|
+| `DOCKERHUB_USERNAME` | Your DockerHub username |
+| `DOCKERHUB_TOKEN` | DockerHub access token |
+
+#### ArgoCD (CD)
+
+ArgoCD monitors the GitHub repository and automatically syncs the Kubernetes cluster when manifests change.
+
+**Install ArgoCD on the server:**
+
+```bash
+ssh -i ~/.ssh/id_rsa ubuntu@18.232.178.157
+
+microk8s kubectl create namespace argocd
+microk8s kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+microk8s kubectl wait --for=condition=available deployment/argocd-server -n argocd --timeout=300s
+
+# Get admin password
+microk8s kubectl -n argocd get secret argocd-initial-admin-secret \
+  -o jsonpath="{.data.password}" | base64 -d
+```
+
+**Expose ArgoCD UI:**
+
+```bash
+microk8s kubectl patch svc argocd-server -n argocd \
+  -p '{"spec": {"type": "NodePort", "ports": [{"port": 443, "nodePort": 30001, "targetPort": 8080}]}}'
+```
+
+**Apply the ArgoCD application:**
+
+```bash
+microk8s kubectl apply -f https://raw.githubusercontent.com/BilalTariq03/microservices-demo/main/k8s/argocd/application.yml
+```
+
+---
+
+## Accessing the Application
+
+| Service | URL | Credentials |
+|---------|-----|-------------|
+| Online Boutique App | `http://18.232.178.157:8080` | None required |
+| ArgoCD Dashboard | `https://18.232.178.157:9090` | admin / (see above) |
+
+**To expose the app via port-forward:**
+
+```bash
+# Frontend app (port 8080)
+microk8s kubectl port-forward -n boutique svc/frontend 8080:80 --address 0.0.0.0 &
+
+# ArgoCD UI (port 9090)
+microk8s kubectl port-forward -n argocd svc/argocd-server 9090:443 --address 0.0.0.0 &
+```
+
+---
+
+## CI/CD Pipeline Flow
+
+```
+Developer pushes code
+        │
+        ▼
+GitHub Actions triggers
+        │
+        ├── Build Docker image (e.g. frontend)
+        ├── Push to DockerHub: 22i1297/frontend:abc1234
+        ├── Update k8s/frontend/deployment.yml image tag
+        └── Commit & push changes to repo
+                │
+                ▼
+        ArgoCD detects change (polls every 3 mins)
+                │
+                ▼
+        ArgoCD syncs cluster
+                │
+                ▼
+        Kubernetes pulls new image from DockerHub
+                │
+                ▼
+        New pods replace old ones (zero-downtime)
+                │
+                ▼
+        App updated! ✅
+```
+
+---
+
+## Teardown
+
+⚠️ **Always destroy AWS resources when done to avoid charges!**
+
+```bash
+cd ~/terraform
+terraform destroy
+```
+
+Type `yes` when prompted. This deletes:
+- EC2 instance
+- VPC, Subnet, Security Group
+- Internet Gateway
+- All associated resources
+
+**Estimated cost while running:** ~$1.20/day (t3.medium in us-east-1)
