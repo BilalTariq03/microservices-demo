@@ -9,4 +9,4 @@ spec:
     app: cartservice
   ports:
     - port: 7070
-      targetPort: 7070
+      targetPort: 8080

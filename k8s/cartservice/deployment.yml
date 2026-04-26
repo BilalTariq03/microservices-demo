@@ -17,12 +17,12 @@ spec:
         - name: cartservice
           image: 22i1297/cartservice:44a5703
           ports:
-            - containerPort: 7070
+            - containerPort: 8000
           env:
             - name: REDIS_ADDR
               value: "redis:6379"          # connects to our Redis database
             - name: PORT
-              value: "7070"
+              value: "8000"
           resources:
             requests:
               cpu: "100m"
