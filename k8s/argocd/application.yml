@@ -16,7 +16,7 @@ spec:
 
   # WHERE is the source code / manifests?
   source:
-    repoURL: https://github.com/22i1297/microservices-demo  # ← update this
+    repoURL: https://github.com/BilalTariq03/microservices-demo  # ← update this
     targetRevision: HEAD              # always use the latest commit
     path: k8s                         # look in the k8s/ folder
 
