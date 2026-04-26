@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: paymentservice
-          image: 22i1297/paymentservice:44a5703
+          image: 22i1297/paymentservice:42a664e
           ports:
             - containerPort: 50051
           env:

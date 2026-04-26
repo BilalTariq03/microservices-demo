@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: cartservice
-          image: 22i1297/cartservice:44a5703
+          image: 22i1297/cartservice:42a664e
           ports:
             - containerPort: 8000
           env:
