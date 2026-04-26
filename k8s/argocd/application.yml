@@ -20,6 +20,8 @@ spec:
     targetRevision: HEAD              # always use the latest commit
     path: k8s                         # look in the k8s/ folder
 
+    directory:
+      recurse: true
   # WHERE should it deploy to?
   destination:
     server: https://kubernetes.default.svc   # the local cluster
