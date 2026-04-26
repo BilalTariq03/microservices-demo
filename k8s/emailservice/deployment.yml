@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: emailservice
-          image: 22i1297/emailservice:79cdf5c
+          image: 22i1297/emailservice:e7df862
           ports:
             - containerPort: 8080
           env:
