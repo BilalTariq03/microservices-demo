@@ -105,6 +105,15 @@ resource "aws_security_group" "ec2_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  # Allow Frontend NodePort
+  ingress {
+    description = "Frontend App"
+    from_port   = 30000
+    to_port     = 30000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   # Allow all outbound traffic (so the server can download packages, etc.)
   egress {
     from_port   = 0
